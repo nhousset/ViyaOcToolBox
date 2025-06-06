@@ -5,7 +5,7 @@ ECHO Lancement du script de connexion PowerShell...
 ECHO.
 
 REM %~dp0 est un chemin magique qui pointe vers le dossier du .bat lui-même
-SET "SCRIPT_PATH=%~dp0\login_oc.ps1"
+SET "SCRIPT_PATH=%~dp0\src\login_oc.ps1"
 
 REM Exécute le script PowerShell
 REM -ExecutionPolicy Bypass : Permet au script de s'exécuter même si la politique est restreinte
