@@ -6,10 +6,7 @@
 # FONCTION 1 : Lit le fichier de configuration (INCHANGÉE)
 function Get-AppConfiguration {
     [CmdletBinding()]
-    param (
-        [Parameter(Mandatory=$true)]
-        [string]$ConfigFilePath
-    )
+    param ([Parameter(Mandatory=$true)][string]$ConfigFilePath)
     if (-not (Test-Path $ConfigFilePath)) { throw "Le fichier de configuration '$ConfigFilePath' est introuvable." }
     $configHashtable = @{}
     Get-Content $ConfigFilePath | ForEach-Object {
@@ -22,39 +19,30 @@ function Get-AppConfiguration {
     return $configHashtable
 }
 
-# FONCTION 2 : Prépare les paramètres spécifiques au script 
+# FONCTION 2 : Prépare TOUS les paramètres nécessaires aux scripts (MISE À JOUR)
 function Initialize-ScriptParameters {
     [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [hashtable]$ConfigData
-    )
+    param([Parameter(Mandatory=$true)][hashtable]$ConfigData)
     
-    # Logique que vous vouliez ajouter :
     $ocPath = $ConfigData.get_Item('OC_EXECUTABLE_PATH')
     if ([string]::IsNullOrWhiteSpace($ocPath)) { $ocPath = "oc.exe" }
 
-    # On crée un objet personnalisé pour retourner toutes les variables proprement
+    # On retourne un objet complet avec tous les paramètres utiles
     $scriptParams = [PSCustomObject]@{
+        ServerUrl        = $ConfigData.get_Item('SERVER_URL')
+        Token            = $ConfigData.get_Item('TOKEN')
+        SkipTls          = [bool]::Parse($ConfigData.get_Item('INSECURE_SKIP_TLS_VERIFY'))
         DefaultNamespace = $ConfigData.get_Item('DEFAULT_NAMESPACE')
         OcPath           = $ocPath
         AppLabel         = $ConfigData.get_Item('APP_LABEL')
     }
-
     return $scriptParams
 }
 
-
-# --- Fonction pour vérifier si une session OpenShift est active --- 
+# FONCTION 3 : Teste la connexion (INCHANGÉE)
 function Test-OcConnection {
     [CmdletBinding()]
-    param (
-        [Parameter(Mandatory=$true)]
-        [string]$OcPath
-    )
+    param ([Parameter(Mandatory=$true)][string]$OcPath)
     & $OcPath status | Out-Null
     return $?
 }
-
-# On exporte maintenant les 3 fonctions
-Export-ModuleMember -Function Get-AppConfiguration, Initialize-ScriptParameters, Test-OcConnection
