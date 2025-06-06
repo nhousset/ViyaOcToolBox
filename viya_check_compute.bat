@@ -1,10 +1,10 @@
 @echo off
-TITLE Viya Check OpenShift
+TITLE Compute Pod Interaction
 
-ECHO Lancement du script de verification Viya...
+ECHO Lancement du script interactif Compute...
 ECHO.
 
-SET "SCRIPT_PATH=%~dp0\src\viya_check.ps1"
+SET "SCRIPT_PATH=%~dp0\src\viya_check_compute.ps1"
 
 powershell.exe -ExecutionPolicy Bypass -File "%SCRIPT_PATH%"
 
