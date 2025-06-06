@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-    Bibliothèque de fonctions partagées pour les scripts OpenShift.
+    Bibliotheque de fonctions partagees pour les scripts OpenShift.
 #>
 
-# FONCTION 1 : Lit le fichier de configuration (INCHANGÉE)
+# FONCTION 1 : Lit le fichier de configuration
 function Get-AppConfiguration {
     [CmdletBinding()]
     param ([Parameter(Mandatory=$true)][string]$ConfigFilePath)
@@ -19,7 +19,7 @@ function Get-AppConfiguration {
     return $configHashtable
 }
 
-# FONCTION 2 : Prépare TOUS les paramètres nécessaires aux scripts (MISE À JOUR)
+# FONCTION 2 : Prepare les parametres specifiques au script
 function Initialize-ScriptParameters {
     [CmdletBinding()]
     param([Parameter(Mandatory=$true)][hashtable]$ConfigData)
@@ -27,7 +27,6 @@ function Initialize-ScriptParameters {
     $ocPath = $ConfigData.get_Item('OC_EXECUTABLE_PATH')
     if ([string]::IsNullOrWhiteSpace($ocPath)) { $ocPath = "oc.exe" }
 
-    # On retourne un objet complet avec tous les paramètres utiles
     $scriptParams = [PSCustomObject]@{
         ServerUrl        = $ConfigData.get_Item('SERVER_URL')
         Token            = $ConfigData.get_Item('TOKEN')
@@ -39,7 +38,7 @@ function Initialize-ScriptParameters {
     return $scriptParams
 }
 
-# FONCTION 3 : Teste la connexion (INCHANGÉE)
+# FONCTION 3 : Teste la connexion
 function Test-OcConnection {
     [CmdletBinding()]
     param ([Parameter(Mandatory=$true)][string]$OcPath)
