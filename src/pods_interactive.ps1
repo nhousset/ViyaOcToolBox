@@ -43,7 +43,7 @@ if (-not [string]::IsNullOrWhiteSpace($params.DefaultNamespace)) {
 # ... (La suite du script reste identique et utilise $params.OcPath et $params.AppLabel) ...
 Write-Host "`n"
 Write-Host "Quel statut de pod souhaitez-vous afficher ?" -ForegroundColor Yellow
-Write-Host "  [1] Running"; Write-Host "  [2] Pending"; Write-Host "  [3] Succeeded"; Write-Host "  [4] Failed"; Write-Host "  [5] Tous les statuts"
+Write-Host "  [1] Running"; Write-Host "  [2] Pending"; Write-Host "  [3] Succeeded"; Write-Host "  [4] Failed"; Write-Host "  [5] Tous les statuts "
 $choice = Read-Host "Votre choix (1-5)"
 
 $statusSelector = ""
