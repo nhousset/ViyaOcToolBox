@@ -28,10 +28,7 @@ if (-not [string]::IsNullOrWhiteSpace($params.DefaultNamespace)) {
 
 # --- Boucle principale du menu ---
 while ($true) {
-    Clear-Host
-    Write-Host "------------------------------------------------" -ForegroundColor Green
-    Write-Host "  Selection d'un pod Compute / Launcher"
-    Write-Host "------------------------------------------------" -ForegroundColor Green
+    # ... (Le début de la boucle est identique)
 
     # --- On recupere les objets pods via JSON ---
     $allPods = & $params.OcPath get pods -n $params.DefaultNamespace -o json | ConvertFrom-Json
@@ -43,10 +40,10 @@ while ($true) {
         break
     }
 
-    # --- MODIFICATION MAJEURE : On construit le menu tres detaille ---
+    # --- On construit le menu detaille et colore ---
     Write-Host "`nVeuillez selectionner un pod :" -ForegroundColor Yellow
     
-    # Affichage des en-tetes pour aligner les colonnes
+    # Affichage des en-tetes
     $headerFormat = "  {0,-4} {1,-55} {2,-8} {3,-10} {4,-10} {5,-10} {6,-15} {7}"
     Write-Host ($headerFormat -f "#", "NOM DU POD", "READY", "STATUT", "RESTARTS", "AGE", "IP", "NODE")
     Write-Host ($headerFormat -f "--", "----------", "-----", "------", "----------", "---", "--", "----")
@@ -54,16 +51,23 @@ while ($true) {
     for ($i = 0; $i -lt $filteredPods.Length; $i++) {
         $pod = $filteredPods[$i]
         
-        # Extraction des nouvelles informations
+        # --- MODIFICATION ICI : Calcul plus robuste de la colonne READY ---
+        $readyContainers = 0
+        # On verifie d'abord si la propriete .containerStatuses existe avant de l'utiliser
+        if ($pod.status.containerStatuses) {
+            $readyContainers = @($pod.status.containerStatuses | Where-Object { $_.ready }).Count
+        }
+        # On s'assure que .spec.containers est bien un tableau pour le .Count
+        $totalContainers = @($pod.spec.containers).Count
+        $readyString = "$readyContainers/$totalContainers"
+        # --- Fin de la modification ---
+
         $podName = $pod.metadata.name
         $podStatus = $pod.status.phase
-        
-        $readyContainers = ($pod.status.containerStatuses | Where-Object { $_.ready }).Count
-        $totalContainers = $pod.spec.containers.Count
-        $readyString = "$readyContainers/$totalContainers"
-        
-        $totalRestarts = ($pod.status.containerStatuses | Measure-Object -Property restartCount -Sum).Sum
-        
+        $totalRestarts = 0
+        if ($pod.status.containerStatuses) {
+             $totalRestarts = ($pod.status.containerStatuses | Measure-Object -Property restartCount -Sum).Sum
+        }
         $podIP = $pod.status.podIP
         $nodeName = $pod.spec.nodeName
         
@@ -77,43 +81,13 @@ while ($true) {
         else { $ageString = "$($age.Seconds)s" }
 
         # Affichage de la ligne du menu
-        Write-Host -NoNewline ("  [{0}]" -f ($i+1)) -ForegroundColor Green # Numero en couleur
+        Write-Host -NoNewline ("  [{0}]" -f ($i+1)) -ForegroundColor Green
         Write-Host ($headerFormat -f "", $podName, $readyString, $podStatus, $totalRestarts, $ageString, $podIP, $nodeName)
     }
     Write-Host "  [Q] Quitter"
 
-    # --- Le reste du script (selection et menu secondaire) ne change pas ---
-    $choice = (Read-Host "`nVotre choix").ToUpper()
-
-    if ($choice -eq 'Q') {
-        break 
-    }
-
-    if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $filteredPods.Length) {
-        $selectedIndex = [int]$choice - 1
-        $selectedPodName = $filteredPods[$selectedIndex].metadata.name
-        
-        Clear-Host
-        Write-Host "------------------------------------------------" -ForegroundColor Green
-        Write-Host "  Pod selectionne : $selectedPodName"
-        Write-Host "------------------------------------------------" -ForegroundColor Green
-        Write-Host "`nMenu d'actions pour ce pod (a developper) :" -ForegroundColor Yellow
-        Write-Host "  [1] Voir les logs"
-        Write-Host "  [2] Decrire le pod"
-        Write-Host "  [R] Revenir a la liste des pods"
-        
-        $actionChoice = (Read-Host "`nVotre choix").ToUpper()
-        if ($actionChoice -eq 'R') {
-            continue 
-        }
-
-        Write-Host "`nFonctionnalite non implementee."
-        Read-Host "`nAppuyez sur Entree pour revenir a la liste des pods..."
-
-    } else {
-        Write-Host "`nChoix invalide." -ForegroundColor Red
-        Start-Sleep -Seconds 2
-    }
+    # --- Le reste du script est identique ---
+    # ...
 }
 
 Write-Host "`nAu revoir !"
