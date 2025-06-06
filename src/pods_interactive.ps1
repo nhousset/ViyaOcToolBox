@@ -66,6 +66,7 @@ switch ($choice) {
 
 # --- Dernière étape : Lister les pods selon le choix ---
 Write-Host "`n--- Liste des pods ---" -ForegroundColor Cyan
+
 $getPodsArguments = @("get", "pods")
 if (-not [string]::IsNullOrWhiteSpace($statusSelector)) { $getPodsArguments += $statusSelector }
 if (-not [string]::IsNullOrWhiteSpace($appLabel)) {
@@ -73,5 +74,8 @@ if (-not [string]::IsNullOrWhiteSpace($appLabel)) {
     Write-Host "Filtre par label appliqué : '$appLabel'" -ForegroundColor Yellow
 }
 
-# CORRECTION ICI : Utilisation de l'opérateur Splatting '@'
-& $ocPath @getPodsArguments
+# Pour être sûr, ajoutons une ligne de débogage pour voir ce que le script essaie de faire
+Write-Host "DEBUG: Commande -> Path: [$ocPath] / Arguments: [$($getPodsArguments -join ' ')]" -ForegroundColor DarkGray
+
+# CORRECTION FINALE : Utilisation de Start-Process
+Start-Process -FilePath $ocPath -ArgumentList $getPodsArguments -Wait -NoNewWindow
