@@ -15,9 +15,7 @@ try {
 # (Cette section ne change pas)
 Write-Host "--- Verification de la session OpenShift existante ---" -ForegroundColor Cyan
 if (-not (Test-OcConnection -OcPath $params.OcPath)) {
-    Write-Host "`nERREUR : Vous ne semblez pas etre connecte a OpenShift." -ForegroundColor Red; Write-Host "Veuillez d'abord lancer le script 'start_login.bat' pour vous connecter." -ForegroundColor Yellow
-    Read-Host "`nAppuyez sur Entree pour fermer."
-    exit 1
+    Write-Host "`nERREUR : Vous ne semblez pas etre connecte a OpenShift." -ForegroundColor Red; Write-Host "Veuillez d'abord lancer le script 'start_login.bat' pour vous connecter." -ForegroundColor Yellow; Read-Host "`nAppuyez sur Entree pour fermer."; exit 1
 }
 Write-Host "Session OpenShift active detectee." -ForegroundColor Green
 if (-not [string]::IsNullOrWhiteSpace($params.DefaultNamespace)) {
@@ -25,9 +23,7 @@ if (-not [string]::IsNullOrWhiteSpace($params.DefaultNamespace)) {
     if (-not $?) { Write-Host "Echec lors du changement vers le namespace '$($params.DefaultNamespace)'." -ForegroundColor Red; Read-Host "Appuyez sur Entree..."; exit 1 }
     Write-Host "Positionne sur le namespace '$($params.DefaultNamespace)'." -ForegroundColor Green
 } else {
-    Write-Host "ERREUR : Le parametre DEFAULT_NAMESPACE est requis dans config.ini pour ce script." -ForegroundColor Red
-    Read-Host "`nAppuyez sur Entree pour fermer."
-    exit 1
+    Write-Host "ERREUR : Le parametre DEFAULT_NAMESPACE est requis dans config.ini pour ce script." -ForegroundColor Red; Read-Host "`nAppuyez sur Entree pour fermer."; exit 1
 }
 
 # --- Boucle principale du menu ---
@@ -37,13 +33,8 @@ while ($true) {
     Write-Host "  Selection d'un pod Compute / Launcher"
     Write-Host "------------------------------------------------" -ForegroundColor Green
 
-    # --- MODIFICATION MAJEURE : On recupere les objets pods via JSON ---
-    
-    # 1. On recupere tous les pods du namespace en format JSON
-    # et on les convertit en objets PowerShell. C'est tres puissant.
+    # --- On recupere les objets pods via JSON ---
     $allPods = & $params.OcPath get pods -n $params.DefaultNamespace -o json | ConvertFrom-Json
-    
-    # 2. On filtre ces objets en PowerShell pour ne garder que ceux qui nous interessent
     $filteredPods = $allPods.items | Where-Object { $_.metadata.name -match "compute|launcher|workload-orchestrator" }
     
     if (-not $filteredPods) {
@@ -52,23 +43,42 @@ while ($true) {
         break
     }
 
-    # 3. On construit le menu detaille et colore
+    # --- MODIFICATION MAJEURE : On construit le menu tres detaille ---
     Write-Host "`nVeuillez selectionner un pod :" -ForegroundColor Yellow
+    
     # Affichage des en-tetes pour aligner les colonnes
-    Write-Host ("  {0,-4} {1,-65} {2,-15} {3}" -f "#", "NOM DU POD", "STATUT", "REDEMARRAGES")
-    Write-Host ("  {0,-4} {1,-65} {2,-15} {3}" -f "--", "----------", "------", "------------")
+    $headerFormat = "  {0,-4} {1,-55} {2,-8} {3,-10} {4,-10} {5,-10} {6,-15} {7}"
+    Write-Host ($headerFormat -f "#", "NOM DU POD", "READY", "STATUT", "RESTARTS", "AGE", "IP", "NODE")
+    Write-Host ($headerFormat -f "--", "----------", "-----", "------", "----------", "---", "--", "----")
 
     for ($i = 0; $i -lt $filteredPods.Length; $i++) {
         $pod = $filteredPods[$i]
+        
+        # Extraction des nouvelles informations
         $podName = $pod.metadata.name
         $podStatus = $pod.status.phase
         
-        # Calcul du nombre total de redemarrages de tous les conteneurs du pod
+        $readyContainers = ($pod.status.containerStatuses | Where-Object { $_.ready }).Count
+        $totalContainers = $pod.spec.containers.Count
+        $readyString = "$readyContainers/$totalContainers"
+        
         $totalRestarts = ($pod.status.containerStatuses | Measure-Object -Property restartCount -Sum).Sum
         
+        $podIP = $pod.status.podIP
+        $nodeName = $pod.spec.nodeName
+        
+        # Calcul simplifie de l'age du pod
+        $creationTime = [datetime]$pod.metadata.creationTimestamp
+        $age = (Get-Date) - $creationTime
+        $ageString = ""
+        if ($age.Days -gt 0) { $ageString = "$($age.Days)d" }
+        elseif ($age.Hours -gt 0) { $ageString = "$($age.Hours)h" }
+        elseif ($age.Minutes -gt 0) { $ageString = "$($age.Minutes)m" }
+        else { $ageString = "$($age.Seconds)s" }
+
         # Affichage de la ligne du menu
         Write-Host -NoNewline ("  [{0}]" -f ($i+1)) -ForegroundColor Green # Numero en couleur
-        Write-Host (" {0,-65} {1,-15} {2}" -f $podName, $podStatus, $totalRestarts)
+        Write-Host ($headerFormat -f "", $podName, $readyString, $podStatus, $totalRestarts, $ageString, $podIP, $nodeName)
     }
     Write-Host "  [Q] Quitter"
 
@@ -81,7 +91,6 @@ while ($true) {
 
     if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $filteredPods.Length) {
         $selectedIndex = [int]$choice - 1
-        # On recupere le nom du pod a partir de l'objet selectionne
         $selectedPodName = $filteredPods[$selectedIndex].metadata.name
         
         Clear-Host
@@ -89,8 +98,8 @@ while ($true) {
         Write-Host "  Pod selectionne : $selectedPodName"
         Write-Host "------------------------------------------------" -ForegroundColor Green
         Write-Host "`nMenu d'actions pour ce pod (a developper) :" -ForegroundColor Yellow
-        Write-Host "  [1] Action A"
-        Write-Host "  [2] Action B"
+        Write-Host "  [1] Voir les logs"
+        Write-Host "  [2] Decrire le pod"
         Write-Host "  [R] Revenir a la liste des pods"
         
         $actionChoice = (Read-Host "`nVotre choix").ToUpper()
