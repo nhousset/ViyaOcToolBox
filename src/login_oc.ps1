@@ -12,7 +12,7 @@ try {
     $projectRoot = Split-Path -Path $PSScriptRoot -Parent
     
     # MODIFICATION ICI : Ajout du sous-dossier 'config' dans le chemin
-    $configFile = Join-Path $projectRoot "config" "config.ini"
+    $configFile = Join-Path $projectRoot "config\config.ini"
 
     if (-not (Test-Path $configFile)) {
         throw "Le fichier de configuration '$configFile' est introuvable."
