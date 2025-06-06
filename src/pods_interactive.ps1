@@ -75,4 +75,3 @@ if (-not [string]::IsNullOrWhiteSpace($appLabel)) {
 
 # CORRECTION ICI : Utilisation de l'opérateur Splatting '@'
 & $ocPath @getPodsArguments
-
