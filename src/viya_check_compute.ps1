@@ -95,27 +95,74 @@ while ($true) {
         break 
     }
 
-    if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $filteredPods.Length) {
+     if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $filteredPods.Length) {
         $selectedIndex = [int]$choice - 1
-        $selectedPodName = $filteredPods[$selectedIndex].metadata.name
+        $selectedPodObject = $filteredPods[$selectedIndex]
+        $selectedPodName = $selectedPodObject.metadata.name
         
-        Clear-Host
-        Write-Host "------------------------------------------------" -ForegroundColor Green
-        Write-Host "  Pod selectionne : $selectedPodName"
-        Write-Host "------------------------------------------------" -ForegroundColor Green
-        Write-Host "`nMenu d'actions pour ce pod (a developper) :" -ForegroundColor Yellow
-        Write-Host "  [1] Voir les logs"
-        Write-Host "  [2] Decrire le pod"
-        Write-Host "  [R] Revenir a la liste des pods"
+        # --- DEBUT DE LA MODIFICATION : Menu d'actions ameliore ---
         
-        $actionChoice = (Read-Host "`nVotre choix").ToUpper()
-        if ($actionChoice -eq 'R') {
-            continue 
-        }
+        # Boucle pour le menu d'actions, pour pouvoir y revenir
+        while ($true) {
+            Clear-Host
+            Write-Host "------------------------------------------------" -ForegroundColor Green
+            Write-Host "  Pod selectionne : $selectedPodName"
+            Write-Host "------------------------------------------------" -ForegroundColor Green
+            Write-Host "`nMenu d'actions pour ce pod :" -ForegroundColor Yellow
+            Write-Host "  [1] Voir les logs"
+            Write-Host "  [2] Decrire le pod (oc describe)"
+            Write-Host "  [R] Revenir a la liste des pods"
+            
+            $actionChoice = (Read-Host "`nVotre choix").ToUpper()
 
-        Write-Host "`nFonctionnalite non implementee."
-        Read-Host "`nAppuyez sur Entree pour revenir a la liste des pods..."
-
+            # On utilise un switch pour plus de clarte
+            switch ($actionChoice) {
+                '1' { # --- VOIR LES LOGS ---
+                    Write-Host "`n--- Logs pour le pod : $selectedPodName ---" -ForegroundColor Cyan
+                    $containers = $selectedPodObject.spec.containers
+                    
+                    $logArguments = @("logs", $selectedPodName, "-n", $params.DefaultNamespace)
+                    
+                    # Si le pod a plus d'un conteneur, on demande lequel choisir
+                    if ($containers.Length -gt 1) {
+                        Write-Host "`nCe pod a plusieurs conteneurs. Lequel choisir ?" -ForegroundColor Yellow
+                        for ($j = 0; $j -lt $containers.Length; $j++) {
+                            Write-Host "  [$($j+1)] $($containers[$j].name)"
+                        }
+                        $containerChoice = Read-Host "Choix du conteneur"
+                        if ($containerChoice -match '^\d+$' -and [int]$containerChoice -ge 1 -and [int]$containerChoice -le $containers.Length) {
+                            $selectedContainer = $containers[[int]$containerChoice - 1].name
+                            $logArguments += "-c", $selectedContainer
+                        } else {
+                            Write-Host "Choix de conteneur invalide." -ForegroundColor Red
+                            Start-Sleep -Seconds 2
+                            continue # Revient au menu d'actions
+                        }
+                    }
+                    
+                    # On ajoute --tail pour ne pas afficher des logs infinis
+                    $logArguments += "--tail=100"
+                    Start-Process -FilePath $params.OcPath -ArgumentList $logArguments -Wait -NoNewWindow
+                    Read-Host "`nAppuyez sur Entree pour revenir au menu d'actions..."
+                }
+                '2' { # --- DECRIRE LE POD ---
+                    Write-Host "`n--- Description du pod : $selectedPodName ---" -ForegroundColor Cyan
+                    $describeArguments = @("describe", "pod", $selectedPodName, "-n", $params.DefaultNamespace)
+                    Start-Process -FilePath $params.OcPath -ArgumentList $describeArguments -Wait -NoNewWindow
+                    Read-Host "`nAppuyez sur Entree pour revenir au menu d'actions..."
+                }
+                'R' {
+                    # On sort de la boucle du menu d'actions pour revenir a la liste des pods
+                    break
+                }
+                default {
+                    Write-Host "`nChoix invalide." -ForegroundColor Red
+                    Start-Sleep -Seconds 2
+                }
+            } # Fin du switch
+        } # Fin de la boucle du menu d'actions
+        # --- FIN DE LA MODIFICATION ---
+        
     } else {
         Write-Host "`nChoix invalide." -ForegroundColor Red
         Start-Sleep -Seconds 2
