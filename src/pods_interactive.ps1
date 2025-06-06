@@ -5,7 +5,7 @@
 try {
     # Cette partie ne fait qu'appeler les fonctions, toute la logique est déportée
     $projectRoot = Split-Path -Path $PSScriptRoot -Parent
-    $configFile = Join-Path $projectRoot "config" "config.ini"
+    $configFile = Join-Path $projectRoot "config\config.ini"
     
     # 1. On lit TOUTE la configuration
     $config = Get-AppConfiguration -ConfigFilePath $configFile
