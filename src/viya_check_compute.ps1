@@ -58,8 +58,14 @@ while ($true) {
         $podName = $pod.metadata.name
         $podStatus = $pod.status.phase
         
-        $readyContainers = ($pod.status.containerStatuses | Where-Object { $_.ready }).Count
-        $totalContainers = $pod.spec.containers.Count
+        # --- MODIFICATION ICI : Calcul plus robuste de la colonne READY ---
+        $readyContainers = 0
+        # On verifie d'abord si la propriete .containerStatuses existe avant de l'utiliser
+        if ($pod.status.containerStatuses) {
+            $readyContainers = @($pod.status.containerStatuses | Where-Object { $_.ready }).Count
+        }
+        # On s'assure que .spec.containers est bien un tableau pour le .Count
+        $totalContainers = @($pod.spec.containers).Count
         $readyString = "$readyContainers/$totalContainers"
         
         $totalRestarts = ($pod.status.containerStatuses | Measure-Object -Property restartCount -Sum).Sum
