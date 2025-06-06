@@ -1,52 +1,43 @@
-<#
-.SYNOPSIS
-    Script interactif pour lister les pods sur OpenShift selon un statut choisi.
-.DESCRIPTION
-    Ce script vérifie si une connexion OpenShift est active. Si oui, il demande
-    à l'utilisateur de choisir un statut de pod à afficher.
-#>
+# --- Étape 1: Importer la bibliothèque de fonctions ---
+. "$PSScriptRoot\functions.ps1"
 
-# --- Étape 1 & 2: Configuration et lecture des paramètres ---
+
+# --- Étape 2: Bloc d'initialisation du script ---
 try {
+    # Cette partie reste ici car $PSScriptRoot est spécifique au script en cours
     $projectRoot = Split-Path -Path $PSScriptRoot -Parent
     $configFile = Join-Path $projectRoot "config\config.ini"
-    if (-not (Test-Path $configFile)) { throw "Le fichier de configuration '$configFile' est introuvable." }
-    $config = @{}
-    Get-Content $configFile | ForEach-Object {
-        $line = $_.Trim()
-        if ($line -and -not $line.StartsWith('#') -and $line.Contains('=')) {
-            $key, $value = $line -split '=', 2
-            $config[$key.Trim()] = $value.Trim()
-        }
-    }
     
-    # On a toujours besoin de ces paramètres, mais plus de ceux pour le login (TOKEN, SERVER_URL)
-    $defaultNamespace = $config.get_Item('DEFAULT_NAMESPACE')
-    $ocPath = $config.get_Item('OC_EXECUTABLE_PATH')
-    $appLabel = $config.get_Item('APP_LABEL')
-    
-    if ([string]::IsNullOrWhiteSpace($ocPath)) { $ocPath = "oc.exe" }
+    # 1. On lit TOUTE la configuration
+    $config = Get-AppConfiguration -ConfigFilePath $configFile
+
+    # 2. On demande à la nouvelle fonction de nous préparer les variables nécessaires
+    $params = Initialize-ScriptParameters -ConfigData $config
 
 } catch {
     Write-Host "❌ ERREUR DE CONFIGURATION :" -ForegroundColor Red; Write-Host $_.Exception.Message; Read-Host "Appuyez sur Entrée..."; exit 1
 }
 
 
-# --- Étape 3: Vérification de la session OpenShift (REMPLACE LE LOGIN) ---
+# --- Étape 3: Vérifier la connexion ---
+# On utilise la variable préparée par la fonction : $params.OcPath
 Write-Host "--- Vérification de la session OpenShift existante ---" -ForegroundColor Cyan
-
-# 'oc status' est une commande légère qui échoue si on n'est pas connecté.
-& $ocPath status | Out-Null
-
-if (-not $?) {
+if (-not (Test-OcConnection -OcPath $params.OcPath)) {
     Write-Host "`n❌ Vous ne semblez pas être connecté à OpenShift." -ForegroundColor Red
-    Write-Host "Veuillez d'abord lancer le script 'start_login.bat' pour vous connecter." -ForegroundColor Yellow
+    Write-Host "Veuillez d'abord lancer le script 'oc_login.bat' pour vous connecter." -ForegroundColor Yellow
     Read-Host "`nAppuyez sur Entrée pour fermer."
     exit 1
 }
-
 Write-Host "✅ Session OpenShift active détectée." -ForegroundColor Green
 
+
+# --- Étape 4: Opérations sur le cluster ---
+# On utilise les variables préparées : $params.DefaultNamespace et $params.OcPath
+if (-not [string]::IsNullOrWhiteSpace($params.DefaultNamespace)) {
+    & $params.OcPath "project" $params.DefaultNamespace | Out-Null
+    if (-not $?) { Write-Host "❌ Échec lors du changement vers le namespace '$($params.DefaultNamespace)'." -ForegroundColor Red; Read-Host "Appuyez sur Entrée..."; exit 1 }
+    Write-Host "✅ Positionné sur le namespace '$($params.DefaultNamespace)'." -ForegroundColor Green
+}
 
 
 # --- MENU INTERACTIF ---
