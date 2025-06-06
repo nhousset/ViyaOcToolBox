@@ -6,7 +6,7 @@ ECHO.
 
 REM %~dp0 est un chemin magique qui pointe vers le dossier du .bat lui-même (ici, src\)
 REM MODIFICATION : On pointe vers le nouveau script list_pods.ps1
-SET "SCRIPT_PATH=%~dp0\list_pods.ps1"
+SET "SCRIPT_PATH=%~dp0\src\list_pods.ps1"
 
 REM Exécute le script PowerShell
 powershell.exe -ExecutionPolicy Bypass -File "%SCRIPT_PATH%"
