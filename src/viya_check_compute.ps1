@@ -15,8 +15,7 @@ try {
 # (Cette section ne change pas)
 Write-Host "--- Verification de la session OpenShift existante ---" -ForegroundColor Cyan
 if (-not (Test-OcConnection -OcPath $params.OcPath)) {
-    Write-Host "`nERREUR : Vous ne semblez pas etre connecte a OpenShift." -ForegroundColor Red
-    Write-Host "Veuillez d'abord lancer le script 'start_login.bat' pour vous connecter." -ForegroundColor Yellow
+    Write-Host "`nERREUR : Vous ne semblez pas etre connecte a OpenShift." -ForegroundColor Red; Write-Host "Veuillez d'abord lancer le script 'start_login.bat' pour vous connecter." -ForegroundColor Yellow
     Read-Host "`nAppuyez sur Entree pour fermer."
     exit 1
 }
@@ -31,34 +30,45 @@ if (-not [string]::IsNullOrWhiteSpace($params.DefaultNamespace)) {
     exit 1
 }
 
-# --- Boucle principale du menu de selection de pod ---
+# --- Boucle principale du menu ---
 while ($true) {
     Clear-Host
     Write-Host "------------------------------------------------" -ForegroundColor Green
     Write-Host "  Selection d'un pod Compute / Launcher"
     Write-Host "------------------------------------------------" -ForegroundColor Green
 
-    # --- Logique d'affichage detaille ---
+    # --- MODIFICATION MAJEURE : On recupere les objets pods via JSON ---
     
-    # 1. On recupere les noms des pods qui nous interessent avec le NOUVEAU filtre
-    # MODIFICATION ICI : Le pattern de Select-String a ete mis a jour.
-    $podNameList = (& $params.OcPath get pods -n $params.DefaultNamespace -o=custom-columns=NAME:.metadata.name --no-headers | Select-String -Pattern "compute|launcher|workload-orchestrator").Line
+    # 1. On recupere tous les pods du namespace en format JSON
+    # et on les convertit en objets PowerShell. C'est tres puissant.
+    $allPods = & $params.OcPath get pods -n $params.DefaultNamespace -o json | ConvertFrom-Json
     
-    if (-not $podNameList) {
+    # 2. On filtre ces objets en PowerShell pour ne garder que ceux qui nous interessent
+    $filteredPods = $allPods.items | Where-Object { $_.metadata.name -match "compute|launcher|workload-orchestrator" }
+    
+    if (-not $filteredPods) {
         Write-Host "`nAucun pod correspondant trouve dans le namespace '$($params.DefaultNamespace)'." -ForegroundColor Yellow
         Read-Host "`nAppuyez sur Entree pour quitter."
         break
     }
 
-    # 2. On affiche un tableau detaille de ces pods
-    Write-Host "`nPods correspondants trouves :" -ForegroundColor Cyan
-    & $params.OcPath get pods -n $params.DefaultNamespace $podNameList -o wide
-    Write-Host "------------------------------------------------"
+    # 3. On construit le menu detaille et colore
+    Write-Host "`nVeuillez selectionner un pod :" -ForegroundColor Yellow
+    # Affichage des en-tetes pour aligner les colonnes
+    Write-Host ("  {0,-4} {1,-65} {2,-15} {3}" -f "#", "NOM DU POD", "STATUT", "REDEMARRAGES")
+    Write-Host ("  {0,-4} {1,-65} {2,-15} {3}" -f "--", "----------", "------", "------------")
 
-    # 3. On affiche la liste numerotee pour la selection
-    Write-Host "`nVeuillez selectionner un pod dans la liste ci-dessus :" -ForegroundColor Yellow
-    for ($i = 0; $i -lt $podNameList.Length; $i++) {
-        Write-Host "  [$($i+1)] $($podNameList[$i])"
+    for ($i = 0; $i -lt $filteredPods.Length; $i++) {
+        $pod = $filteredPods[$i]
+        $podName = $pod.metadata.name
+        $podStatus = $pod.status.phase
+        
+        # Calcul du nombre total de redemarrages de tous les conteneurs du pod
+        $totalRestarts = ($pod.status.containerStatuses | Measure-Object -Property restartCount -Sum).Sum
+        
+        # Affichage de la ligne du menu
+        Write-Host -NoNewline ("  [{0}]" -f ($i+1)) -ForegroundColor Green # Numero en couleur
+        Write-Host (" {0,-65} {1,-15} {2}" -f $podName, $podStatus, $totalRestarts)
     }
     Write-Host "  [Q] Quitter"
 
@@ -69,13 +79,14 @@ while ($true) {
         break 
     }
 
-    if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $podNameList.Length) {
+    if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $filteredPods.Length) {
         $selectedIndex = [int]$choice - 1
-        $selectedPod = $podNameList[$selectedIndex]
+        # On recupere le nom du pod a partir de l'objet selectionne
+        $selectedPodName = $filteredPods[$selectedIndex].metadata.name
         
         Clear-Host
         Write-Host "------------------------------------------------" -ForegroundColor Green
-        Write-Host "  Pod selectionne : $selectedPod"
+        Write-Host "  Pod selectionne : $selectedPodName"
         Write-Host "------------------------------------------------" -ForegroundColor Green
         Write-Host "`nMenu d'actions pour ce pod (a developper) :" -ForegroundColor Yellow
         Write-Host "  [1] Action A"
