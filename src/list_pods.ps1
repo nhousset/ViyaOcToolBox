@@ -24,7 +24,7 @@ try {
 Write-Host "--- Vérification de la session OpenShift existante ---" -ForegroundColor Cyan
 if (-not (Test-OcConnection -OcPath $params.OcPath)) {
     Write-Host "`n❌ Vous ne semblez pas être connecté à OpenShift." -ForegroundColor Red
-    Write-Host "Veuillez d'abord lancer le script 'start_login.bat' pour vous connecter." -ForegroundColor Yellow
+    Write-Host "Veuillez d'abord lancer le script 'oc_login.bat' pour vous connecter." -ForegroundColor Yellow
     Read-Host "`nAppuyez sur Entrée pour fermer."
     exit 1
 }

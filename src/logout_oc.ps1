@@ -4,7 +4,7 @@
 # --- Étape 2: Initialisation du script ---
 try {
     $projectRoot = Split-Path -Path $PSScriptRoot -Parent
-    $configFile = Join-Path $projectRoot "config" "config.ini"
+    $configFile = Join-Path $projectRoot "config\config.ini"
     $config = Get-AppConfiguration -ConfigFilePath $configFile
     # On a juste besoin de savoir où est oc.exe
     $params = Initialize-ScriptParameters -ConfigData $config
