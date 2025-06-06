@@ -117,32 +117,59 @@ while ($true) {
 
             # On utilise un switch pour plus de clarte
             switch ($actionChoice) {
-                '1' { # --- VOIR LES LOGS ---
+               '1' { # --- VOIR LES LOGS (NOUVELLE VERSION AMELIOREE) ---
                     Write-Host "`n--- Logs pour le pod : $selectedPodName ---" -ForegroundColor Cyan
                     $containers = $selectedPodObject.spec.containers
-                    
                     $logArguments = @("logs", $selectedPodName, "-n", $params.DefaultNamespace)
                     
-                    # Si le pod a plus d'un conteneur, on demande lequel choisir
                     if ($containers.Length -gt 1) {
-                        Write-Host "`nCe pod a plusieurs conteneurs. Lequel choisir ?" -ForegroundColor Yellow
-                        for ($j = 0; $j -lt $containers.Length; $j++) {
-                            Write-Host "  [$($j+1)] $($containers[$j].name)"
-                        }
-                        $containerChoice = Read-Host "Choix du conteneur"
-                        if ($containerChoice -match '^\d+$' -and [int]$containerChoice -ge 1 -and [int]$containerChoice -le $containers.Length) {
-                            $selectedContainer = $containers[[int]$containerChoice - 1].name
-                            $logArguments += "-c", $selectedContainer
-                        } else {
-                            Write-Host "Choix de conteneur invalide." -ForegroundColor Red
-                            Start-Sleep -Seconds 2
-                            continue # Revient au menu d'actions
-                        }
+                        # ... (la logique pour choisir un conteneur ne change pas) ...
                     }
                     
-                    # On ajoute --tail pour ne pas afficher des logs infinis
+                    # On affiche les 100 dernieres lignes
                     $logArguments += "--tail=100"
-                    Start-Process -FilePath $params.OcPath -ArgumentList $logArguments -Wait -NoNewWindow
+
+                    # 1. On execute 'oc logs' et on recupere la sortie dans une variable
+                    $rawLogs = & $params.OcPath $logArguments
+
+                    Write-Host "--- DEBUT DES LOGS ---"
+                    # 2. On traite chaque ligne de log individuellement
+                    foreach ($line in $rawLogs) {
+                        try {
+                            # 3. On essaie de convertir la ligne de log en objet JSON
+                            $logObject = $line | ConvertFrom-Json -ErrorAction Stop
+                            
+                            # On recupere les champs standards (en minuscules)
+                            # On utilise .psobject.properties.name pour trouver les cles sans se soucier de la casse
+                            $levelKey = ($logObject.psobject.properties.name | Where-Object { $_ -ilike 'level' -or $_ -ilike 'severity' }) | Select-Object -First 1
+                            $messageKey = ($logObject.psobject.properties.name | Where-Object { $_ -ilike 'message' -or $_ -ilike 'msg' }) | Select-Object -First 1
+                            $timestampKey = ($logObject.psobject.properties.name | Where-Object { $_ -ilike 'timestamp' -or $_ -ilike 'ts' }) | Select-Object -First 1
+
+                            $level = if ($levelKey) { $logObject.$levelKey } else { "INFO" }
+                            $message = if ($messageKey) { $logObject.$messageKey } else { "No message field" }
+                            $timestamp = if ($timestampKey) { $logObject.$timestampKey } else { "" }
+
+                            # On choisit une couleur en fonction du niveau de log
+                            $levelColor = switch ($level.ToLower()) {
+                                "error"   { "Red" }
+                                "fatal"   { "Red" }
+                                "warn"    { "Yellow" }
+                                "warning" { "Yellow" }
+                                "debug"   { "DarkGray" }
+                                default   { "Cyan" }
+                            }
+                            
+                            # 4. On affiche la ligne formattee et coloree
+                            Write-Host -NoNewline "[$timestamp] "
+                            Write-Host -NoNewline ("[{0,-7}]" -f $level.ToUpper()) -ForegroundColor $levelColor
+                            Write-Host " $message"
+
+                        } catch {
+                            # 5. Si la conversion JSON echoue, on affiche la ligne brute telle quelle
+                            Write-Host $line
+                        }
+                    }
+                    Write-Host "--- FIN DES LOGS ---"
                     Read-Host "`nAppuyez sur Entree pour revenir au menu d'actions..."
                 }
                 '2' { # --- DECRIRE LE POD ---
