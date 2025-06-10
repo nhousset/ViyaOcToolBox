@@ -40,8 +40,10 @@ if (-not [string]::IsNullOrWhiteSpace($params.DefaultNamespace)) {
 }
 
 
-# --- Étape 5: Lister les pods 'Running' ---
 Write-Host "`n--- Liste des nodes ---" -ForegroundColor Cyan
-$getPodsArguments = "get nodes"
 
-& $params.OcPath $getPodsArguments
+# 1. On definit les arguments dans un tableau, chaque element est separe
+$getNodesArguments = @("get", "nodes", "-o", "wide")
+
+# 2. On utilise Start-Process, la methode la plus fiable que nous ayons etablie
+Start-Process -FilePath $params.OcPath -ArgumentList $getNodesArguments -Wait -NoNewWindow
