@@ -46,7 +46,6 @@ function Test-OcConnection {
     return $?
 }
 
-
 function Initialize-And-Validate-Connection {
     <#
     .SYNOPSIS
@@ -78,6 +77,13 @@ function Initialize-And-Validate-Connection {
         }
         Write-Host "✅ Session OpenShift active détectée." -ForegroundColor Green
         
+		# On utilise les variables préparées : $params.DefaultNamespace et $params.OcPath
+		if (-not [string]::IsNullOrWhiteSpace($params.DefaultNamespace)) {
+			& $params.OcPath "project" $params.DefaultNamespace | Out-Null
+			if (-not $?) { Write-Host "❌ Échec lors du changement vers le namespace '$($params.DefaultNamespace)'." -ForegroundColor Red; Read-Host "Appuyez sur Entrée..."; exit 1 }
+			Write-Host "✅ Positionné sur le namespace '$($params.DefaultNamespace)'." -ForegroundColor Green
+		}
+
         # Retourne l'objet avec les paramètres si tout va bien
         return $scriptParams
     }
@@ -88,53 +94,14 @@ function Initialize-And-Validate-Connection {
     }
 }
 
-function Set-OpenShiftProject {
-    <#
-    .SYNOPSIS
-        Change le projet (namespace) actif dans OpenShift.
-    .PARAMETER OcPath
-        Chemin vers l'exécutable 'oc'.
-    .PARAMETER Namespace
-        Le nom du namespace à sélectionner.
-    #>
-    param(
-        [string]$OcPath,
-        [string]$Namespace
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Namespace)) {
-        Write-Host "ℹ️ Aucun namespace par défaut n'est spécifié, le changement est ignoré." -ForegroundColor Yellow
-        return
-    }
-
-    Write-Host "`n--- Changement de namespace ---" -ForegroundColor Cyan
-    & $OcPath "project" $Namespace | Out-Null
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "❌ Échec lors du changement vers le namespace '$Namespace'." -ForegroundColor Red
-        Read-Host "Appuyez sur Entrée..."
-        exit 1 # Erreur critique, on quitte le script
-    }
-    
-    Write-Host "✅ Positionné sur le namespace '$Namespace'." -ForegroundColor Green
-}
-
 function Execute-OcCommand {
-    <#
-    .SYNOPSIS
-        Exécute une commande 'oc' de manière fiable avec les arguments fournis.
-    .PARAMETER OcPath
-        Chemin vers l'exécutable 'oc'.
-    .PARAMETER Arguments
-        Un tableau de chaînes de caractères représentant les arguments de la commande.
-    #>
+
     param(
-        [string]$OcPath,
-        [string[]]$Arguments
+        [string[]]$getPodsArguments
     )
     
     try {
-        Start-Process -FilePath $OcPath -ArgumentList $Arguments -Wait -NoNewWindow -ErrorAction Stop
+      & $params.OcPath $getPodsArguments
     }
     catch {
         Write-Host "`n❌ Une erreur est survenue lors de l'exécution de la commande 'oc'." -ForegroundColor Red
